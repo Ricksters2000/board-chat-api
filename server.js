@@ -50,7 +50,7 @@ io.on('connection', (socket) => {
     socket.join(ROOM_PREFIX+currentRoom);
     // console.log('socket rooms:',socket.rooms)
     socket.on('message', (info) => {
-        console.log(info);
+        // console.log(info);
         io.emit('message', `${JSON.stringify(info)}`);
     })
     socket.on('disconnect', (reason) => {
@@ -61,6 +61,7 @@ io.on('connection', (socket) => {
         io.in(options.room).emit('end-turn', options);
     })
     socket.on('send-invite', (to, from) => {
+        console.log('invite sent to:', to, 'from:', from);
         io.in(to).emit('receive-invite', {...from, socketId: socket.id});
     })
     socket.on('accept-invite', (to, from) => {
