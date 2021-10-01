@@ -42,6 +42,18 @@ const handleProfileUpdate = (db, s3Client) => (req, res) => {
     
 }
 
+const handleProfileWin = (db) => (req, res) => {
+    const {id} = req.params;
+    
+    db('users').returning('wins').where({id}).increment({wins: 1})
+        .then(userWins => {
+            if(userWins.length > 0)
+                res.json(userWins[0])
+            else
+                res.status(401).json('user not found')
+        }).catch(err => res.status(400).json(err))
+}
+
 const handleProfileUpdateImage = (req, res, db) => {
     const {id} = req.params;
     const image = getImageDest(req.file);
@@ -88,33 +100,7 @@ const getImageDest = (file) => file.destination.replace('public','') + file.file
 module.exports = {
     handleProfileGet,
     handleProfileUpdate,
+    handleProfileWin,
     handleProfileUpdateImage,
     handleTempImage
 }
-
-// app.get('/image', (req, res) => {
-//     const bucketParams = {
-//         Bucket: S3_BUCKET,
-//         Key: req.body.path,
-//     };
-
-//     console.log('path', req.body.path);
-    
-//     const streamToString = (stream) => {
-//         return new Promise((resolve, reject) => {
-//             const chunks = [];
-//             stream.on("data", (chunk) => chunks.push(chunk));
-//             stream.on("error", reject);
-//             stream.on("end", () => resolve(Buffer.concat(chunks).toString("base64")));
-//         });
-//     }
-
-//     s3Client.send(new GetObjectCommand(bucketParams))
-//         .then(data => {
-//             console.log('data', data)
-//             streamToString(data.Body)
-//                 .then(bodyContents => {
-//                     res.json(bodyContents);
-//                 }).catch(err => res.status(400).json(err))
-//         }).catch(err => res.status(400).json(err))
-// })

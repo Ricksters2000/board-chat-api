@@ -3,13 +3,16 @@ require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt-nodejs');
 const knex = require('knex');
+const redis = require('redis');
 const cors = require('cors');
 const upload = require('./middlewares/uploads');
 const {s3Client} = require('./libs/s3Client');
+const idGeneration = require('./libs/idGeneration');
 
 const register = require('./controllers/register');
 const signin = require('./controllers/signin');
 const profile = require('./controllers/profile');
+const generateUniqueId = require('./libs/idGeneration');
 
 const app = express();
 
@@ -28,17 +31,23 @@ const db = knex({
     connection: process.env.POSTGRES_URI
 })
 
+const client = redis.createClient(process.env.REDIS_URI);
+
 const ROOM_PREFIX = 'room-';
 let currentRoom = 1;
 let amtInRoom = 0;
 
 app.get('/', (req, res) => {
-    res.send('eeee');
+    db('users').returning('*')
+        .then(users => {
+            res.json(users);
+        }).catch(err => res.status(400).json(err))
 })
 
 //handling profiles
 app.get('/profile/:id', profile.handleProfileGet(db));
 app.post('/profile/:id', upload.imageUploads.single('image'), profile.handleProfileUpdate(db, s3Client));
+app.put('/profile/win/:id', profile.handleProfileWin(db));
 //authentication
 app.post('/register', register.handleRegister(db, bcrypt, null));
 app.post('/signin', signin.signinAuthentication(db, bcrypt, null));
@@ -46,9 +55,6 @@ app.post('/signin', signin.signinAuthentication(db, bcrypt, null));
 //web socket
 io.on('connection', (socket) => {
     // console.log('a user connected with id:', socket.id);
-    // io.in(socket.id).socketsJoin(ROOM_PREFIX+currentRoom);
-    socket.join(ROOM_PREFIX+currentRoom);
-    // console.log('socket rooms:',socket.rooms)
     socket.on('message', (info) => {
         // console.log(info);
         io.emit('message', `${JSON.stringify(info)}`);
@@ -64,23 +70,41 @@ io.on('connection', (socket) => {
         console.log('invite sent to:', to, 'from:', from);
         io.in(to).emit('receive-invite', {...from, socketId: socket.id});
     })
-    socket.on('accept-invite', (to, from) => {
-        
+    socket.on('accept-invite', (toId, game) => {
+        const roomId = generateUniqueId();
+        console.log('creating room id:', roomId);
+        socket.join(roomId);
+        io.in(toId).socketsJoin(roomId);
+        io.in(roomId).emit('load-game', game, roomId);
+    })
+    socket.on('ready-up', (roomId) => {
+        client.incr(roomId, (err, reply) => {
+            console.log('player ready in room:', roomId, 'amount ready:', reply);
+
+            if(reply === 2) {
+                io.in(roomId).emit('game-started', socket.id);
+
+                client.del(roomId);
+            }
+        });
+    })
+    socket.on('send-user-id', (userId, roomId) => {
+        io.in(roomId).emit('get-user-id', userId);
     })
 })
 
-io.of('/').adapter.on('join-room', (room, id) => {
-    if(room === id) return;
-    // console.log(`socket: ${id} joined room: ${room}`);
-    amtInRoom++;
-    if(amtInRoom === 1) {
-        io.in(id).emit('game-started', 1, room);
-    } else if(amtInRoom === 2) {
-        amtInRoom = 0;
-        currentRoom++;
-        io.in(id).emit('game-started', 2, room);
-    }
-})
+// io.of('/').adapter.on('join-room', (room, id) => {
+//     if(room === id) return;
+//     // console.log(`socket: ${id} joined room: ${room}`);
+//     amtInRoom++;
+//     if(amtInRoom === 1) {
+//         io.in(id).emit('game-started', 1, room);
+//     } else if(amtInRoom === 2) {
+//         amtInRoom = 0;
+//         currentRoom++;
+//         io.in(id).emit('game-started', 2, room);
+//     }
+// })
 
 server.listen(8000, () => {
     console.log('app is running on port 8000');
