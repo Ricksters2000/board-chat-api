@@ -1,6 +1,5 @@
 require('dotenv').config();
-const {PutObjectCommand} = require('@aws-sdk/client-s3');
-const fs = require('fs');
+const { uploadFile, deleteFile } = require('../libs/s3Client');
 
 const handleProfileGet = (db) => (req, res) => {
     const {id} = req.params;
@@ -8,7 +7,7 @@ const handleProfileGet = (db) => (req, res) => {
     db('users').where('id', id)
         .then(user => {
             if(user.length) 
-                res.json({...user[0], image: `https://${process.env.S3_BUCKET}.s3.amazonaws.com/${user[0].image}`});
+                res.json({...user[0], image: user[0].image ? `https://${process.env.S3_BUCKET}.s3.amazonaws.com/${user[0].image}` : null});
             else
                 res.status(400).json('user not found');
         })
@@ -17,14 +16,18 @@ const handleProfileGet = (db) => (req, res) => {
 
 const handleProfileUpdate = (db, s3Client) => (req, res) => {
     const {id} = req.params;
-    const {name, color, email, prevEmail} = req.body;
+    const {name, color, email, prevEmail, prevImage} = req.body;
     const image = req.file?.destination ? req.file.destination+req.file.filename : '';
 
-    uploadImage(image, s3Client)
+    console.log('updating profile with fields:', name, color, email, prevEmail, image || 'no image');
+
+    uploadFile(image, s3Client)
         .then(data => {
             const userOptions = {name, color}
-            if(data !== 'no image')
+            if(data) {
+                deleteFile(prevImage);
                 userOptions['image'] = image;
+            }
             db('login').where({email: prevEmail}).update({email})
                 .then(resp => {
                     if(resp) {
@@ -70,29 +73,7 @@ const handleProfileUpdateImage = (req, res, db) => {
 
 const handleTempImage = (req, res) => {
     const image = getImageDest(req.file);
-    res.json(process.env.HOST+ '/' + image);
-}
-
-const uploadImage = (file, s3Client) => {
-    if(!file)
-        return Promise.resolve('no image');
-    // const file = req.file.destination + req.file.filename;
-    const fileStream = fs.createReadStream(file);
-    console.log('key:', file)
-    // Set the parameters
-    const uploadParams = {
-        Bucket: process.env.S3_BUCKET,
-        // Add the required 'Key' parameter using the 'path' module.
-        Key: file,
-        // Add the required 'Body' parameter
-        Body: fileStream,
-        ACL: 'public-read'
-    };
-    
-    return s3Client.send(new PutObjectCommand(uploadParams))
-        .then(data => {
-            return data;
-        }).catch(err => Promise.reject('error uploading image'))
+    res.json(process.env.HOST + '/' + image);
 }
 
 const getImageDest = (file) => file.destination.replace('public','') + file.filename;

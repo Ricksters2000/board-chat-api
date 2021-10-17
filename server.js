@@ -7,7 +7,6 @@ const redis = require('redis');
 const cors = require('cors');
 const upload = require('./middlewares/uploads');
 const {s3Client} = require('./libs/s3Client');
-const idGeneration = require('./libs/idGeneration');
 
 const register = require('./controllers/register');
 const signin = require('./controllers/signin');
@@ -33,10 +32,6 @@ const db = knex({
 
 const client = redis.createClient(process.env.REDIS_URI);
 
-const ROOM_PREFIX = 'room-';
-let currentRoom = 1;
-let amtInRoom = 0;
-
 app.get('/', (req, res) => {
     db('users').returning('*')
         .then(users => {
@@ -46,8 +41,10 @@ app.get('/', (req, res) => {
 
 //handling profiles
 app.get('/profile/:id', profile.handleProfileGet(db));
-app.post('/profile/:id', upload.imageUploads.single('image'), profile.handleProfileUpdate(db, s3Client));
+app.post('/profile/:id', upload.errCheck(upload.imageUploads, 'image'), profile.handleProfileUpdate(db, s3Client));
 app.put('/profile/win/:id', profile.handleProfileWin(db));
+
+app.post('/temp/img', upload.errCheck(upload.tempUploads, 'image'), profile.handleTempImage);
 //authentication
 app.post('/register', register.handleRegister(db, bcrypt, null));
 app.post('/signin', signin.signinAuthentication(db, bcrypt, null));
@@ -92,19 +89,6 @@ io.on('connection', (socket) => {
         io.in(roomId).emit('get-user-id', userId);
     })
 })
-
-// io.of('/').adapter.on('join-room', (room, id) => {
-//     if(room === id) return;
-//     // console.log(`socket: ${id} joined room: ${room}`);
-//     amtInRoom++;
-//     if(amtInRoom === 1) {
-//         io.in(id).emit('game-started', 1, room);
-//     } else if(amtInRoom === 2) {
-//         amtInRoom = 0;
-//         currentRoom++;
-//         io.in(id).emit('game-started', 2, room);
-//     }
-// })
 
 server.listen(8000, () => {
     console.log('app is running on port 8000');
