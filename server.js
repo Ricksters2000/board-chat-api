@@ -90,6 +90,6 @@ io.on('connection', (socket) => {
     })
 })
 
-server.listen(8000, () => {
-    console.log('app is running on port 8000');
+server.listen(process.env.PORT || 8000, () => {
+    console.log(`app is running on port ${process.env.PORT || 8000}`);
 })
