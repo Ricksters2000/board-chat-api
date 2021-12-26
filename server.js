@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt-nodejs');
 const knex = require('knex');
-// const redis = require('redis');
+const redis = require('redis');
 const cors = require('cors');
 const upload = require('./middlewares/uploads');
 const {s3Client} = require('./libs/s3Client');
@@ -30,7 +30,7 @@ const db = knex({
     connection: process.env.POSTGRES_URI
 })
 
-// const client = redis.createClient(process.env.REDIS_URI);
+const client = redis.createClient(process.env.REDIS_URI);
 
 app.get('/', (req, res) => {
     db('users').returning('*')
