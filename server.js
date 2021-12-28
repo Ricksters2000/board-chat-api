@@ -13,6 +13,13 @@ const signin = require('./controllers/signin');
 const profile = require('./controllers/profile');
 const generateUniqueId = require('./libs/idGeneration');
 
+const db = knex({
+    client: 'pg',
+    connection: process.env.DATABASE_URL
+})
+
+const client = redis.createClient(process.env.REDIS_URI);
+
 const app = express();
 
 app.use(express.json());
@@ -24,13 +31,6 @@ const server = require('http').createServer(app);
 const io = require('socket.io')(server, {
     cors: {origin: '*'}
 })
-
-const db = knex({
-    client: 'pg',
-    connection: process.env.DATABASE_URL
-})
-
-const client = redis.createClient(process.env.REDIS_URI);
 
 app.get('/', (req, res) => {
     db('users').returning('*')
