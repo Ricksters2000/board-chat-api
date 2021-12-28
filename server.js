@@ -27,7 +27,7 @@ const io = require('socket.io')(server, {
 
 const db = knex({
     client: 'pg',
-    connection: process.env.POSTGRES_URI
+    connection: process.env.DATABASE_URL
 })
 
 const client = redis.createClient(process.env.REDIS_URI);
