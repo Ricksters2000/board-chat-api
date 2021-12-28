@@ -16,7 +16,10 @@ const generateUniqueId = require('./libs/idGeneration');
 
 const db = knex({
     client: 'pg',
-    connection: parse(process.env.DATABASE_URL)
+    connection: {
+        ...parse(process.env.DATABASE_URL),
+        ssl: {rejectUnauthorized: false}
+    }
 })
 
 const client = redis.createClient(process.env.REDIS_URI);
