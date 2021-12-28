@@ -7,6 +7,7 @@ const redis = require('redis');
 const cors = require('cors');
 const upload = require('./middlewares/uploads');
 const {s3Client} = require('./libs/s3Client');
+const {parse} = require('pg-connection-string');
 
 const register = require('./controllers/register');
 const signin = require('./controllers/signin');
@@ -15,7 +16,7 @@ const generateUniqueId = require('./libs/idGeneration');
 
 const db = knex({
     client: 'pg',
-    connection: process.env.DATABASE_URL
+    connection: parse(process.env.DATABASE_URL)
 })
 
 const client = redis.createClient(process.env.REDIS_URI);
